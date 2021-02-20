@@ -5,6 +5,7 @@ Currently supported source:
 - [AutoEq](https://github.com/jaakkopasanen/AutoEq) parametric EQ settings file
 - [Oratory1990 presets](https://www.reddit.com/r/oratory1990/wiki/index/list_of_presets) extracted from pdf
 - Single convolution impulse response file like WAVE or text
+- [ASH-IR Dataset ](https://github.com/ShanonPearce/ASH-IR-Dataset) binaural room impulse responses
 
 ## Install
 
@@ -99,3 +100,9 @@ For generating a part of the settings a template is used. This contains among ot
 
 With `--gain` argument a gain can be applied or overruled if not already present.
 
+
+## Use ASH-IR Dataset
+
+'''bash
+ash2cdsp.py --gain -18 --output ../out/R02_Control_Room1.yml ..\data\2.0_Config_02_Control_Room_1.txt
+'''
