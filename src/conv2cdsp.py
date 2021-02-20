@@ -29,7 +29,7 @@ class ConvImporter (Config2CdspConfigBase):
         config = {'devices': DEVICES }
 
         ir_filename = self.inputfile
-        ir_format = 'SE16LE'
+        ir_format = 'S16LE'
 
         config['filters'] = {}
         config['filters']['mastergain'] = { 'type': 'Gain',
@@ -37,7 +37,7 @@ class ConvImporter (Config2CdspConfigBase):
         # config['filters']['ir_left'] = { 'type': 'Conv',
         #                                 'parameters': {'type': 'file', 'filename': ir_filename , 'format': ir_format}}
         config['filters']['ir'] = { 'type': 'Conv',
-                                        'parameters': {'type': 'file', 'filename': ir_filename , 'format': ir_format}}
+                                        'parameters': {'type': 'File', 'filename': ir_filename , 'format': ir_format}}
 
         config['mixers'] = {'stereo': STEREO_MIXER}
 
