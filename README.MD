@@ -103,6 +103,25 @@ With `--gain` argument a gain can be applied or overruled if not already present
 
 ## Use ASH-IR Dataset
 
+'''
+usage: ash2cdsp.py [-h] [--version] [--gain GAIN] [--output OUTPUT]
+                   [--format {TEXT,FLOAT64LE,FLOATLE,S32LE,S24LE3,S24LE,S16LE}]
+                   [--prepwave] [--soxpath SOX_PATH] [--coeff-path COEFF_PATH]
+                   [--hpcf HPCF_FILE]
+                   inputfile
+'''
+
+Minimal example
 '''bash
 ash2cdsp.py --gain -18 --output ../out/R02_Control_Room1.yml ..\data\2.0_Config_02_Control_Room_1.txt
 '''
+
+Full blown:
+- Convert APO config to camilladdsp
+- Include headphone correction
+- Convert ir headphone wave file to raw file
+- Convert both ir spatial wave files from stereo to 4 raw files
+
+'''bash
+ash2cdsp.py --gain -18 --format S32LE --prepwave --soxpath sox --coeff-path ../coeffs --hpcf "D:\work\ASH-IR-Dataset\HpCFs\Sennheiser\HpCF_Sennheiser_HD800S_A.wav" --output ../out/ash_ir_dataset/configs/R02_Control_Room1.yml D:\work\ASH-IR-Dataset\E-APO_Configs\BRIR_Convolution\2.0_Stereo\2.0_Config_02_Control_Room_1.txt
+'''bash
