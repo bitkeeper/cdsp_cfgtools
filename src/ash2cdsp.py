@@ -5,8 +5,6 @@
 #
 #
 #
-# py -3 .\ash2cdsp.py --gain -18 --format S32LE --prepwave --soxpath D:\Programs\sox-14.4.2\sox.exe --coeff-path ../coeffs --hpcf "D:\work\ASH-IR-Dataset\HpCFs\Sennheiser\HpCF_Sennheiser_HD800S_A.wav" --output ../out/ash_ir_dataset/configs/R02_Control_Room1.yml D:\work\ASH-IR-Dataset\E-APO_Configs\BRIR_Convolution\2.0_Stereo\2.0_Config_02_Control_Room_1.txt
-#
 
 import re
 from base import Config2CdspConfigBase, DEVICES, STEREO_MIXER
@@ -77,7 +75,7 @@ class AshIrImporter (Config2CdspConfigBase):
           ir_file_input_base = os.path.join(args.coeff_path, os.path.basename(ir_file_input_base) )
         ir_file_input_base = ir_file_input_base.replace('\\', '/')
 
-        wave_file_output = '{name}{{}}{angle}_{{}}_{format}{ext}'.format(name=ir_file_input_base, angle=ir_angle, ext='.raw', format='%samplerate%Hz_32b')
+        wave_file_output = '{name}{{}}{angle}_{{}}_{format}{ext}'.format(name=ir_file_input_base, angle=ir_angle, ext='.raw', format='$samplerate$Hz_32b')
 
         wave_files_out = [wave_file_output.format('-','L'),
                           wave_file_output.format('-','R'),
@@ -90,7 +88,8 @@ class AshIrImporter (Config2CdspConfigBase):
 
         if args.hpcf_file:
           template_file =  "__spatial_hpcf__ .yml"
-          wave_file_output = os.path.join( os.path.dirname(ir_file_input_base), os.path.basename(args.hpcf_file)[:-4]+'_%samplerate%Hz_32b.raw')
+          wave_file_output = os.path.join( os.path.dirname(ir_file_input_base), os.path.basename(args.hpcf_file)[:-4]+'_$samplerate$Hz_32b.raw')
+          print(wave_file_output)
           wave_file_output = wave_file_output.replace('\\', '/')
           if args.prep_wave:
             self.prep_wave(args.hpcf_file, [wave_file_output])
@@ -122,15 +121,18 @@ class AshIrImporter (Config2CdspConfigBase):
 
     def prep_wave(self, filename, outputs):
         for idx,output in enumerate(outputs):
-           output= output.replace('%samplerate%', '44100')
+           output= output.replace('$samplerate$', '44100')
+
 
            output = os.path.join( os.path.dirname(self.args.output), output)
            output = os.path.abspath(output)
-           if len(outputs) == 2:
-              cmd ='{} {} -b 32 {} remix {}'.format(self.args.sox_path, filename, output, idx+1)
-           else:
-              cmd ='{} {} -b 32 {} '.format(self.args.sox_path, filename, output)
-           os.system(cmd)
+
+           if os.path.isfile(output) == False:
+            if len(outputs) == 2:
+                cmd ='{} {} -b 32 {} remix {}'.format(self.args.sox_path, filename, output, idx+1)
+            else:
+                cmd ='{} {} -b 32 {} '.format(self.args.sox_path, filename, output)
+            os.system(cmd)
 
 if __name__ == "__main__":
     importer = AshIrImporter()
