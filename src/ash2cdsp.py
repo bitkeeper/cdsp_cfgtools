@@ -3,165 +3,53 @@
 # Converts ASH-IR APO configuration file to CamillaDSP configuration file
 # @bitkeeper 2021
 #
+#
+#
+# py -3 .\ash2cdsp.py --gain -18 --format S32LE --prepwave --soxpath D:\Programs\sox-14.4.2\sox.exe --coeff-path ../coeffs --hpcf "D:\work\ASH-IR-Dataset\HpCFs\Sennheiser\HpCF_Sennheiser_HD800S_A.wav" --output ../out/ash_ir_dataset/configs/R02_Control_Room1.yml D:\work\ASH-IR-Dataset\E-APO_Configs\BRIR_Convolution\2.0_Stereo\2.0_Config_02_Control_Room_1.txt
+#
 
 import re
 from base import Config2CdspConfigBase, DEVICES, STEREO_MIXER
 from yaml import load, FullLoader
 import os
 
-#TODO: support more then a fixed WAVE file for 16_SE
 #TODO: auto detect format of the wave file
 #TODO: detect clipping level for automatic master gain
 
-ASH_IR_TEMPLATE ='''
-devices:
-  adjust_period: 10
-  capture:
-    channels: 2
-    extra_samples: 0
-    filename: /dev/stdin
-    format: S32LE
-    read_bytes: 0
-    skip_bytes: 0
-    type: File
-  capture_samplerate: 0
-  chunksize: 1024
-  enable_rate_adjust: false
-  enable_resampling: false
-  playback:
-    channels: 2
-    device: hw:0,0
-    format: S32LE
-    type: Alsa
-  queuelimit: 1
-  resampler_type: BalancedAsync
-  samplerate: 44100
-  silence_threshold: 0
-  silence_timeout: 0
-  target_level: 0
-filters:
-  mastergain:
-    type: Gain
-    parameters:
-      gain: 3
-      inverted: false
-  ir_l_input_l_ear:
-    type: Conv
-    parameters:
-      type: File
-      filename: {IR_L_INPUT_L_EAR}
-      format: {IR_FORMAT}
-  ir_l_input_r_ear:
-    type: Conv
-    parameters:
-      type: File
-      filename: {IR_L_INPUT_R_EAR}
-      format: {IR_FORMAT}
-
-  ir_r_input_l_ear:
-    type: Conv
-    parameters:
-      type: File
-      filename: {IR_R_INPUT_L_EAR}
-      format: {IR_FORMAT}
-  ir_r_input_r_ear:
-    type: Conv
-    parameters:
-      type: File
-      filename: {IR_R_INPUT_R_EAR}
-      format: {IR_FORMAT}
-mixers:
-  2to4:
-    channels:
-      in: 2
-      out: 4
-    mapping:
-    - dest: 0
-      sources:
-      - channel: 0
-        gain: 0
-        inverted: false
-    - dest: 1
-      sources:
-      - channel: 0
-        gain: 0
-        inverted: false
-    - dest: 2
-      sources:
-      - channel: 1
-        gain: 0
-        inverted: false
-    - dest: 3
-      sources:
-      - channel: 1
-        gain: 0
-        inverted: false
-  4to2:
-    channels:
-      in: 4
-      out: 2
-    mapping:
-    - dest: 0
-      sources:
-      - channel: 0
-        gain: 0
-        inverted: false
-      - channel: 2
-        gain: 0
-        inverted: false
-    - dest: 1
-      sources:
-      - channel: 1
-        gain: 0
-        inverted: false
-      - channel: 3
-        gain: 0
-        inverted: false
-pipeline:
-- type: Filter
-  channel: 0
-  names:
-  - mastergain
-- type: Filter
-  channel: 1
-  names:
-  - mastergain
-- type: Mixer
-  name: 2to4
-- type: Filter
-  channel: 0
-  names:
-  - ir_l_input_l_ear
-- type: Filter
-  channel: 1
-  names:
-  - ir_l_input_r_ear
-- type: Filter
-  channel: 2
-  names:
-  - ir_r_input_l_ear
-- type: Filter
-  channel: 3
-  names:
-  - ir_r_input_r_ear
-- type: Mixer
-  name: 4to2
-'''
-
-
 class AshIrImporter (Config2CdspConfigBase):
+
+    FORMATS = ['TEXT',
+           'FLOAT64LE',
+           'FLOATLE',
+           'S32LE',
+           'S24LE3',
+           'S24LE',
+           'S16LE']
 
     def __init__(self):
         super().__init__()
         self.description = 'ash2cdsp creates configuration for use of ASH IR files.'
         self.convs = []
+        parser = self.init_arg_parser()
+        parser.add_argument('--format', dest = 'format',
+                   choices = AshIrImporter.FORMATS, #default = 'other',
+                   help = 'Format of the convolution files')
+        parser.add_argument('--prepwave', dest = 'prep_wave', action='store_const', const = sum,
+                   help = 'Prep the wav files for camilladsp by split the channeld.')
+        parser.add_argument('--soxpath', dest = 'sox_path', default='sox',
+                   help = 'Sox to sox exucutable (default sox)')
+        parser.add_argument('--coeff-path', dest = 'coeff_path', default = None,
+                   help = 'Change convolution location to this path.')
+        parser.add_argument('--hpcf', dest = 'hpcf_file', default = None,
+                   help = 'Headphone compensation filter file to use. If not provided only a spatial simulation config is generated')
 
     def get_conv_files(self, file):
         convs = []
         for line in file:
             pos = line.find('Convolution: ')
             if pos != -1:
-                conv_file = line[pos + len('Convolution: '):].strip().split('\\')[-1]
+                # conv_file = line[pos + len('Convolution: '):].strip().split('\\')[-1]
+                conv_file = line[pos + len('Convolution: '):].strip()
                 convs.append(conv_file)
         return convs
 
@@ -170,32 +58,79 @@ class AshIrImporter (Config2CdspConfigBase):
         filters = []
 
         self.convs = self.get_conv_files(file)
-
         return gain, filters
-
 
     def generate(self):
         gain = self.gain
-        # config = {'devices': DEVICES }
-
-        # conv_file = line[pos + len('Convolution: '):].strip().split('\\')[-1]
-        base, ext = os.path.splitext(self.convs[0])
+        args = self.args
+        base, ext = os.path.splitext((os.path.basename(self.convs[0])) )
 
         ir_angle = abs(int(base[-3:]))
         ir_name = '../coeffs/'+base[:-3]
-        ir_format = 'S16LE'
+        ir_format = args.format
 
-        config_string = ASH_IR_TEMPLATE.format(IR_FORMAT = ir_format,
-                            IR_L_INPUT_L_EAR = '{}-{}_L{}'.format(ir_name, ir_angle, ext),
-                            IR_L_INPUT_R_EAR = '{}-{}_R{}'.format(ir_name, ir_angle, ext),
-                            IR_R_INPUT_L_EAR = '{}{}_L{}'.format(ir_name, ir_angle, ext),
-                            IR_R_INPUT_R_EAR = '{}{}_R{}'.format(ir_name, ir_angle, ext),
-        )
+        # abs pathof conv relative to input config
+        ir_file_input_base = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(self.inputfile)), os.path.dirname(self.convs[0]), base[:-3]) )
+        wave_file_input = '{name}{{}}{angle}{ext}'.format(name=ir_file_input_base, angle=ir_angle, ext=ext)
 
-        config = load(config_string, Loader=FullLoader)
-        config['filters']['mastergain']['parameters'] ['gain'] = float(gain)
+        if args.coeff_path:
+          ir_file_input_base = os.path.join(args.coeff_path, os.path.basename(ir_file_input_base) )
+        ir_file_input_base = ir_file_input_base.replace('\\', '/')
+
+        wave_file_output = '{name}{{}}{angle}_{{}}_{format}{ext}'.format(name=ir_file_input_base, angle=ir_angle, ext='.raw', format='%samplerate%Hz_32b')
+
+        wave_files_out = [wave_file_output.format('-','L'),
+                          wave_file_output.format('-','R'),
+                          wave_file_output.format('','L'),
+                          wave_file_output.format('','R')]
+
+        if args.prep_wave:
+          self.prep_wave(wave_file_input.format('-'), [wave_files_out[0], wave_files_out[1]])
+          self.prep_wave(wave_file_input.format(''), [wave_files_out[2], wave_files_out[3]])
+
+        if args.hpcf_file:
+          template_file =  "__spatial_hpcf__ .yml"
+          wave_file_output = os.path.join( os.path.dirname(ir_file_input_base), os.path.basename(args.hpcf_file)[:-4]+'_%samplerate%Hz_32b.raw')
+          wave_file_output = wave_file_output.replace('\\', '/')
+          if args.prep_wave:
+            self.prep_wave(args.hpcf_file, [wave_file_output])
+        else:
+          template_file =  "__spatial__.yml"
+
+        template_file = os.path.abspath( os.path.join( os.path.dirname(os.path.abspath(__file__) ), '..', 'data', 'ash_ir_dataset', template_file ) )
+
+        with open( template_file,  'r') as template_config_file:
+          template_config_string = template_config_file.read()
+          if args.hpcf_file:
+            config_string = template_config_string.format(IR_FORMAT = ir_format,
+                              IR_HPCF = wave_file_output,
+                              IR_L_INPUT_L_EAR = wave_files_out[0],
+                              IR_L_INPUT_R_EAR = wave_files_out[1],
+                              IR_R_INPUT_L_EAR = wave_files_out[2],
+                              IR_R_INPUT_R_EAR = wave_files_out[3])
+          else:
+            config_string = template_config_string.format(IR_FORMAT = ir_format,
+                              IR_L_INPUT_L_EAR = wave_files_out[0],
+                              IR_L_INPUT_R_EAR = wave_files_out[1],
+                              IR_R_INPUT_L_EAR = wave_files_out[2],
+                              IR_R_INPUT_R_EAR = wave_files_out[3])
+
+
+          config = load(config_string, Loader=FullLoader)
+          config['filters']['mastergain']['parameters'] ['gain'] = float(gain)
         self.config = config
 
+    def prep_wave(self, filename, outputs):
+        for idx,output in enumerate(outputs):
+           output= output.replace('%samplerate%', '44100')
+
+           output = os.path.join( os.path.dirname(self.args.output), output)
+           output = os.path.abspath(output)
+           if len(outputs) == 2:
+              cmd ='{} {} -b 32 {} remix {}'.format(self.args.sox_path, filename, output, idx+1)
+           else:
+              cmd ='{} {} -b 32 {} '.format(self.args.sox_path, filename, output)
+           os.system(cmd)
 
 if __name__ == "__main__":
     importer = AshIrImporter()

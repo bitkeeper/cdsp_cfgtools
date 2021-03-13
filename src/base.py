@@ -64,6 +64,8 @@ class Config2CdspConfigBase:
         self.epilog =''
         self.description =''
 
+        self.parser = None
+
     def generate(self):
         gain = self.gain
         filters = self.filters
@@ -93,6 +95,8 @@ class Config2CdspConfigBase:
             dump(self.config, file, sort_keys=False)
 
     def import_file(self, inputfilename, outputfilename):
+        inputfilename = inputfilename.replace('\\\\', '\\')
+
         with open(inputfilename, 'r') as file:
             self.inputfile = inputfilename
             gain, filters = self.convert(file)
@@ -103,10 +107,10 @@ class Config2CdspConfigBase:
         self.generate()
         self.export_to_file(outputfilename)
 
-    def get_cmdline_arguments(self):
+    def init_arg_parser(self):
         # epilog = 'Root privileges required for import or clear.'
         parser = argparse.ArgumentParser(description = self.description, epilog = self.epilog)
-        parser.add_argument('inputfile',  nargs = '?', default = None,
+        parser.add_argument('inputfile',  default = None, nargs =1,
                     help = 'Input configuration of source.')
 
         parser.add_argument('--version', action='version', version='%(prog)s {}'.format(Config2CdspConfigBase.VERSION))
@@ -117,19 +121,20 @@ class Config2CdspConfigBase:
 
         parser.add_argument('--output', default = None,
                     help = 'Output File name of the CamillaDSP config. default the input with as extension .yml')
+        self.parser = parser
+        return parser
 
-
-        args = parser.parse_args()
+    def get_cmdline_arguments(self, arguments=None):
+        if self.parser == None:
+            self.init_arg_parser()
+        args = self.parser.parse_args(arguments) if arguments else self.parser.parse_args()
+        self.args = args
         return args
 
-    def main(self):
-        args = self.get_cmdline_arguments()
-
+    def main(self, arguments = None):
+        args = self.get_cmdline_arguments(arguments)
         if args.gain:
             self.gain = float(args.gain)
 
         if args.inputfile:
-            self.import_file(args.inputfile, args.output)
-
-
-
+            self.import_file(args.inputfile[0], args.output)
